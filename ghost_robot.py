@@ -1,5 +1,4 @@
 import chatdb_utils
-import openai
 import bot_utils
 
 def main():
@@ -9,12 +8,13 @@ def main():
     chatdb_utils.create_table(conn)
     # Define commands
     commands = {
-        "@helper recentchat": chatdb_utils.get_last_n_chats(conn, 2),
-        "@helper forget": lambda conn: chatdb_utils.delete_recent_entries(conn),
-        "@helper amnesia": chatdb_utils.delete_all_chats,
-        "@helper summarize": lambda conn: bot_utils.summarize_conversation(bot_utils.format_conversation(chatdb_utils.get_last_n_chats(conn, 10))),
+        "@recentchat": lambda conn=conn: chatdb_utils.get_last_n_chats(conn, 2),
+        "@forget": lambda conn=conn: chatdb_utils.delete_recent_entries(conn),
+        "@amnesia": lambda conn=conn: chatdb_utils.delete_all_chats(conn),
+        "@summarize": lambda conn=conn: bot_utils.summarize_conversation(bot_utils.format_conversation(chatdb_utils.get_last_n_chats(conn, 10))),
+        "@updatevectors": lambda conn=conn: chatdb_utils.update_vectors_in_database(conn),
         # add more commands here
-    }
+        }
 
     while True:
         # prompt for user input

@@ -34,7 +34,7 @@ def get_response_from_bot(message, conn):
 
     # Add summary to the conversation history
     conversation_summary = {
-        'role': 'assistant',
+        'role': 'system',
         'content': f"What follows is a summary of the most recent conversation you have had with the user. Use it as context for your answer, if relevant: {summary}"
     }
     # Defining the user role message using the message passed to this function
@@ -48,7 +48,7 @@ def get_response_from_bot(message, conn):
     # If related_context is not empty, define the context message
     if related_context:
         context = {
-            'role': 'assistant',
+            'role': 'user',
             'content': f"Here is some information from past conversations that may be relevant to the query: {new_context}"
         }
         #Creating a conversation history by combining the system, conversation summary, context, and user messages
@@ -103,7 +103,7 @@ def summarize_conversation(conn, message):
     # Read the system role prompt from a file
     with open("BotData/personality.txt", "r") as file:
         system_prompt = file.read().strip()
-
+    system_prompt += "What follows is the most recent transcript of your conversation with Brandon. "
     system = {
         'role': 'system',
         'content': system_prompt
@@ -113,7 +113,7 @@ def summarize_conversation(conn, message):
     # Create the instruction for the API to summarize the conversation
     instruction = {
         'role': 'system',
-        'content': "You are about to lose your memory. Above is a transcript of your last conversation. Write a summary for yourself that you can use to recall its contents later."
+        'content': "You are about to lose your memory. Write a summary of the provided transcript that you can use to recall its contents later."
     }
     # Add the instruction to the conversation history
     conversation_history.append(instruction)
@@ -129,7 +129,7 @@ def summarize_conversation(conn, message):
     return response.choices[0].message['content']
 
 def summarize_search(results, query):
-    system_prompt = "You are an AI assistant. Your task is to summarize any information relevant to the given query from the provided conversation history."
+    system_prompt = "You are an AI assistant. Your task is to summarize any information relevant to the given query from the provided conversation history beween yourself and Brandon. Do not provide a response to the query itself or include info not relevant to the query"
 
     # Read the system role prompt from a file
     system = {
@@ -145,7 +145,7 @@ def summarize_search(results, query):
 
     # Define the conversation history message
     conv_hist_msg = {
-        'role': 'assistant',
+        'role': 'user',
         'content': f"The following conversation history might contain information relevant to your query: {results}"
     }
     conversation_history = [system, query_msg, conv_hist_msg]

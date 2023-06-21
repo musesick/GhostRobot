@@ -3,8 +3,29 @@ import spacy
 from sqlite3 import Error
 from numpy.linalg import norm
 import numpy as np
+from sentence_transformers import SentenceTransformer
+import sys
 
-nlp = spacy.load('en_core_web_md')
+class LazyLoader:
+    def __init__(self):
+        self._nlp = None
+        self._model = None
+
+    @property
+    def nlp(self):
+        if self._nlp is None:
+            import spacy
+            self._nlp = spacy.load('en_core_web_md')
+        return self._nlp
+
+    @property
+    def model(self):
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer
+            self._model = SentenceTransformer('all-MiniLM-L6-v2')#multi-qa-mpnet-base-dot-v1
+        return self._model
+
+lazy_loader = LazyLoader()
 
 def create_connection():
     conn = None
@@ -31,17 +52,24 @@ def create_table(conn):
     except Error as e:
         print(e)
 
-def compute_vector(nlp, text):
-    return ','.join(str(x) for x in nlp(text).vector)
+def compute_vector(message):
+    return ','.join(str(x) for x in lazy_loader.model.encode([message], show_progress_bar=False)[0])
+
+def preprocess_message(message):
+    doc = lazy_loader.nlp(message.lower())
+    return ' '.join([token.text for token in doc if not token.is_punct])
+
 
 def insert_chat(conn, chat):
     _, _, message = chat
     if not message.startswith("@"):
-        vector = compute_vector(nlp, message)
+        # preprocess the message
+        message = preprocess_message(message)
+        vector = compute_vector(message)
         sql = ''' INSERT INTO chat_history(timestamp, sender, message, vector)
                   VALUES(?,?,?,?) '''
         cur = conn.cursor()
-        cur.execute(sql, chat + (vector,))
+        cur.execute(sql, chat[:2] + (message, vector,))
         conn.commit()
         return cur.lastrowid
 
@@ -87,28 +115,57 @@ def string_to_vector(vector_string):
 def cosine_similarity(a, b):
     return np.dot(a, b) / (norm(a) * norm(b))
 
+
 def search_chat_history(conn, query):
     cur = conn.cursor()
     cur.execute("SELECT * FROM chat_history")
-
     rows = cur.fetchall()
-
-    user_vector = nlp(query).vector
+    user_vector = lazy_loader.model.encode([query], show_progress_bar=False)[0]
     similar_msgs = []
 
     for i in range(len(rows)):
         if rows[i][2] == 'Brandon':
-            msg_vector = string_to_vector(rows[i][4])
+            msg_vector = string_to_vector(rows[i][4])  # Use string_to_vector to convert string to vector
             similarity = cosine_similarity(user_vector, msg_vector)
-            if similarity > 0.7:
+            print(f"Message: {rows[i][3]}, Similarity: {similarity}")  # for debugging
+            if similarity > 0.5:
                 role_user = 'user'
                 content_user = rows[i][3].replace("Brandon: ", "")  # Remove the username from the content
-                similar_msgs.append({'role': role_user, 'content': content_user})
+                similar_msgs.append({'role': role_user, 'content': content_user, 'similarity': similarity})
 
                 # Add the following assistant message, if exists
                 if i < len(rows) - 1:  # Check if there's a message after the current one
                     role_assistant = 'assistant'
-                    content_assistant = rows[i+1][3]
-                    similar_msgs.append({'role': role_assistant, 'content': content_assistant})
+                    content_assistant = rows[i + 1][3]
+                    similar_msgs.append(
+                        {'role': role_assistant, 'content': content_assistant, 'similarity': similarity})
 
-    return similar_msgs
+    similar_msgs = sorted(similar_msgs, key=lambda x: x['similarity'], reverse=True)
+
+    # Take only the top 5 messages
+    top_5_msgs = similar_msgs[:5]
+
+    for msg in top_5_msgs:
+        print(f"Role: {msg['role']}, Content: {msg['content']}, Similarity: {msg['similarity']}")
+
+    # Ask user if they want to proceed after viewing search results
+    user_input = input("Continue the query? (y/n): ")
+    if user_input.lower() == 'y':
+        return top_5_msgs
+    else:
+        print("Exiting program.")
+        sys.exit()  # Exits the whole program
+
+def update_vectors_in_database(conn):
+    cur = conn.cursor()
+    # Select all rows in the database
+    cur.execute("SELECT * FROM chat_history")
+    rows = cur.fetchall()
+
+    # For each row, update the vector
+    for row in rows:
+        new_vector = compute_vector(row[3])  # Assuming the message is in the fourth column
+        cur.execute("UPDATE chat_history SET vector = ? WHERE id = ?", (new_vector, row[0]))
+
+    # Commit the changes
+    conn.commit()
