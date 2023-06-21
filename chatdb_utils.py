@@ -144,17 +144,7 @@ def search_chat_history(conn, query):
 
     # Take only the top 5 messages
     top_5_msgs = similar_msgs[:5]
-
-    for msg in top_5_msgs:
-        print(f"Role: {msg['role']}, Content: {msg['content']}, Similarity: {msg['similarity']}")
-
-    # Ask user if they want to proceed after viewing search results
-    user_input = input("Continue the query? (y/n): ")
-    if user_input.lower() == 'y':
-        return top_5_msgs
-    else:
-        print("Exiting program.")
-        sys.exit()  # Exits the whole program
+    return top_5_msgs
 
 def update_vectors_in_database(conn):
     cur = conn.cursor()
