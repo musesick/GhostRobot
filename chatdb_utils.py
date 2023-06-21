@@ -127,7 +127,7 @@ def search_chat_history(conn, query):
         if rows[i][2] == 'Brandon':
             msg_vector = string_to_vector(rows[i][4])  # Use string_to_vector to convert string to vector
             similarity = cosine_similarity(user_vector, msg_vector)
-            print(f"Message: {rows[i][3]}, Similarity: {similarity}")  # for debugging
+            #print(f"Message: {rows[i][3]}, Similarity: {similarity}")  # for debugging
             if similarity > 0.5:
                 role_user = 'user'
                 content_user = rows[i][3].replace("Brandon: ", "")  # Remove the username from the content
