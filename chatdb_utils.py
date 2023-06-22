@@ -145,7 +145,9 @@ def search_chat_history(conn, query):
 
     # Take only the top 5 messages
     top_5_msgs = similar_msgs[:5]
-    return top_5_msgs
+    top_5_msgs_without_similarity = [{k: v for k, v in msg.items() if k != 'similarity'} for msg in top_5_msgs]
+
+    return top_5_msgs_without_similarity
 
 def update_vectors_in_database(conn):
     cur = conn.cursor()
