@@ -131,7 +131,8 @@ def search_chat_history(conn, query):
             if similarity > 0.5:
                 role_user = 'user'
                 content_user = rows[i][3].replace("Brandon: ", "")  # Remove the username from the content
-                similar_msgs.append({'role': role_user, 'content': content_user, 'similarity': similarity})
+                similar_msgs.append(
+                    {'role': role_user, 'content': content_user, 'similarity': similarity})  # include similarity here
 
                 # Add the following assistant message, if exists
                 if i < len(rows) - 1:  # Check if there's a message after the current one
